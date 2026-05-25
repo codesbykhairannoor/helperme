@@ -70,7 +70,7 @@ async function autoViewStatus(message: proto.IWebMessageInfo): Promise<void> {
     // Read/view the status
     await readMessages(key.remoteJid, [key])
     logger.info(`Auto-viewed status from ${key.participant}`)
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Failed to auto-view status:', error)
   }
 }
@@ -92,7 +92,7 @@ async function autoReactToStatus(message: proto.IWebMessageInfo): Promise<void> 
     
     await sendReaction(key.participant, key, reaction)
     logger.info(`Auto-reacted to status from ${key.participant} with ${reaction}`)
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Failed to auto-react to status:', error)
   }
 }
@@ -162,7 +162,7 @@ export async function grabStatus(
     
     logger.info(`Grabbed status from ${senderNumber}`)
     return true
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Failed to grab status:', error)
     return false
   }

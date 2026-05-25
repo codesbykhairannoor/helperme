@@ -32,7 +32,7 @@ function startCleanupScheduler() {
     try {
       cleanOldMessages(7) // Keep messages for 7 days
       cleanOldMedia(7) // Keep media for 7 days
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Cleanup error:', error)
     }
   }, CLEANUP_INTERVAL)

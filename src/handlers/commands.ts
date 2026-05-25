@@ -166,7 +166,7 @@ export async function handleCommand(ctx: BotContext): Promise<boolean> {
     await handler(ctx)
     logger.info(`Command executed: ${command} by ${ctx.sender}`)
     return true
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Command error (${command}):`, error)
     await ctx.reply('An error occurred while processing your command.')
     return true

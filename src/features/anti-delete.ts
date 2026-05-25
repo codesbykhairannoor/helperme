@@ -66,7 +66,31 @@ export async function handleDeletedMessage(
   let recoveryText = `*[Deleted Message Recovered]*\n\n`
   recoveryText += `*From:* ${senderName} (${senderNumber})\n`
   recoveryText += `*Time:* ${timestamp}\n`
-  recoveryText += `*Chat:* ${chatId.includes('@g.us') ? 'Group' : 'Private'}\n\n`
+  let chatType = 'Private'
+  let chatName = chatId
+
+  if (chatId.includes('@g.us')) {
+    chatType = 'Group'
+    try {
+      // Try to get actual group name
+      const { getSocket } = require('../connection')
+      const sock = getSocket()
+      if (sock) {
+        const metadata = await sock.groupMetadata(chatId)
+        if (metadata && metadata.subject) {
+          chatName = metadata.subject
+        }
+      }
+    } catch (e) {
+      // Fallback if metadata fails
+    }
+    recoveryText += `*Chat:* ${chatType} (${chatName})\n\n`
+  } else if (chatId === 'status@broadcast') {
+    chatType = 'Status'
+    recoveryText += `*Chat:* ${chatType}\n\n`
+  } else {
+    recoveryText += `*Chat:* ${chatType}\n\n`
+  }
   
   if (storedMessage.content) {
     recoveryText += `*Message:*\n${storedMessage.content}`
@@ -75,7 +99,18 @@ export async function handleDeletedMessage(
   }
   
   // Determine where to send the recovered message
-  const targetChat = getOwnerChatId() || chatId
+  const ownerChat = getOwnerChatId()
+  let targetChat = ownerChat
+
+  // Fallback if owner is not set
+  if (!targetChat) {
+    if (chatId.includes('@g.us')) {
+      targetChat = chatId // In groups, it's okay to send it to the group
+    } else {
+      logger.warn('Owner number not set! Skipping anti-delete for private chat to avoid sending back to sender.')
+      return // Don't send it back to the person who deleted it
+    }
+  }
   
   try {
     // Send text notification
@@ -99,7 +134,7 @@ export async function handleDeletedMessage(
     }
     
     logger.info(`Recovered deleted message sent to ${targetChat}`)
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Failed to send recovered message:', error)
   }
 }

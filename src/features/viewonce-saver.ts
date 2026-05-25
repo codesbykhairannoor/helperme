@@ -107,7 +107,7 @@ export async function handleViewOnceMessage(
     
     logger.info(`View-once media saved and forwarded to ${targetChat}`)
     return true
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Failed to handle view-once message:', error)
     return false
   }

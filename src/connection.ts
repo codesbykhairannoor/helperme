@@ -112,7 +112,7 @@ export async function downloadMedia(message: proto.IWebMessageInfo): Promise<Buf
       }
     )
     return buffer as Buffer
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Failed to download media:', error)
     return null
   }

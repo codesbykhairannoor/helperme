@@ -75,7 +75,7 @@ export async function handleMessage(
     // Handle status messages separately
     if (isStatusMessage(chatId)) {
       await handleStatusMessage(message)
-      return
+      // We don't return here so the status message can be saved to DB for anti-delete
     }
     
     // Skip messages from self
@@ -114,7 +114,7 @@ export async function handleMessage(
           const media = await saveMediaFile(buffer, storedMessage.id, mediaType, mimeType, null)
           storedMessage.mediaPath = media.filePath
         }
-      } catch (error) {
+      } catch (error: any) {
         logger.warn('Failed to download/store message media:', error)
       }
     }
@@ -127,13 +127,15 @@ export async function handleMessage(
       await handleViewOnceMessage(message, chatId, sender, pushName)
     }
     
-    // Create context and handle commands
-    const ctx = createContext(sock, message)
-    if (ctx && text) {
-      await handleCommand(ctx)
+    // Create context and handle commands (skip for statuses)
+    if (!isStatusMessage(chatId)) {
+      const ctx = createContext(sock, message)
+      if (ctx && text) {
+        await handleCommand(ctx)
+      }
     }
     
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error handling message:', error)
   }
 }

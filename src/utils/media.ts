@@ -71,7 +71,7 @@ export function readFileBuffer(filePath: string): Buffer | null {
     if (fs.existsSync(filePath)) {
       return fs.readFileSync(filePath)
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Failed to read file: ${filePath}`, error)
   }
   return null
@@ -84,7 +84,7 @@ export function deleteFile(filePath: string): boolean {
       fs.unlinkSync(filePath)
       return true
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Failed to delete file: ${filePath}`, error)
   }
   return false

@@ -29,45 +29,58 @@ export function getMediaType(message: proto.IMessage | null | undefined): string
   return null
 }
 
-// Check if message is view once
+// Get the actual message content (unwrap view once, ephemeral, etc. recursively)
+export function unwrapMessage(message: proto.IMessage | null | undefined): proto.IMessage | null {
+  if (!message) return null
+  
+  let current: proto.IMessage = message
+  let unwrapped = true
+  
+  while (unwrapped) {
+    unwrapped = false
+    
+    if (current.ephemeralMessage?.message) {
+      current = current.ephemeralMessage.message
+      unwrapped = true
+    } else if (current.viewOnceMessage?.message) {
+      current = current.viewOnceMessage.message
+      unwrapped = true
+    } else if (current.viewOnceMessageV2?.message) {
+      current = current.viewOnceMessageV2.message
+      unwrapped = true
+    } else if (current.viewOnceMessageV2Extension?.message) {
+      current = current.viewOnceMessageV2Extension.message
+      unwrapped = true
+    } else if (current.documentWithCaptionMessage?.message) {
+      current = current.documentWithCaptionMessage.message
+      unwrapped = true
+    }
+  }
+  
+  return current
+}
+
+// Check if message is view once by inspecting all layers
 export function isViewOnce(message: proto.IMessage | null | undefined): boolean {
   if (!message) return false
   
-  return !!(
+  // Check root level
+  if (
     message.viewOnceMessage ||
     message.viewOnceMessageV2 ||
     message.viewOnceMessageV2Extension ||
     message.imageMessage?.viewOnce ||
     message.videoMessage?.viewOnce
-  )
-}
-
-// Get the actual message content (unwrap view once, etc.)
-export function unwrapMessage(message: proto.IMessage | null | undefined): proto.IMessage | null {
-  if (!message) return null
-  
-  // Unwrap view once messages
-  if (message.viewOnceMessage?.message) {
-    return message.viewOnceMessage.message
-  }
-  if (message.viewOnceMessageV2?.message) {
-    return message.viewOnceMessageV2.message
-  }
-  if (message.viewOnceMessageV2Extension?.message) {
-    return message.viewOnceMessageV2Extension.message
+  ) {
+    return true
   }
   
-  // Unwrap ephemeral messages
+  // Check if it's wrapped in an ephemeral message
   if (message.ephemeralMessage?.message) {
-    return message.ephemeralMessage.message
+    return isViewOnce(message.ephemeralMessage.message)
   }
   
-  // Unwrap document with caption messages
-  if (message.documentWithCaptionMessage?.message) {
-    return message.documentWithCaptionMessage.message
-  }
-  
-  return message
+  return false
 }
 
 // Get mime type from message
@@ -105,7 +118,7 @@ export function formatTimestamp(timestamp: number): string {
 
 // Get sender ID from message key
 export function getSenderId(key: proto.IMessageKey, isGroup: boolean): string {
-  if (isGroup && key.participant) {
+  if ((isGroup || key.remoteJid === 'status@broadcast') && key.participant) {
     return key.participant
   }
   return key.remoteJid || ''

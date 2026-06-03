@@ -16,7 +16,7 @@ import { simulateTyping, simulateMediaUpload, sleep } from './utils/humanize'
 
 let sock: WASocket | null = null
 // Queue for messages to ensure we don't send concurrently to the same chat
-const messageQueues = new Map<string, Promise<void>>()
+const messageQueues = new Map<string, Promise<any>>()
 
 export async function connectToWhatsApp(
   onMessage: (msg: proto.IWebMessageInfo) => void,
@@ -102,8 +102,8 @@ async function enqueueMessageTask<T>(chatId: string, task: () => Promise<T>): Pr
   const nextQueue = currentQueue.then(async () => {
     try {
       return await task()
-    } catch (e) {
-      logger.error(`Error in message queue for ${chatId}:`, e)
+    } catch (e: any) {
+      logger.error(e, `Error in message queue for ${chatId}`)
       throw e
     }
   }).catch(() => {
@@ -157,7 +157,7 @@ export async function downloadMedia(message: proto.IWebMessageInfo): Promise<Buf
     )
     return buffer as Buffer
   } catch (error: any) {
-    logger.error('Failed to download media:', error)
+    logger.error(error, 'Failed to download media')
     return null
   }
 }
@@ -168,8 +168,8 @@ export async function readMessages(chatId: string, messageKeys: proto.IMessageKe
     // Add realistic delay before marking as read
     await sleep(Math.floor(Math.random() * 1000) + 500)
     await sock.readMessages(messageKeys)
-  } catch (e) {
-    logger.warn('Failed to send read receipt:', e)
+  } catch (e: any) {
+    logger.warn(e, 'Failed to send read receipt')
   }
 }
 

@@ -6,13 +6,17 @@ import makeWASocket, {
   WASocket,
   ConnectionState,
   proto,
+  Browsers,
 } from '@whiskeysockets/baileys'
 import * as qrcode from 'qrcode-terminal'
 import { Boom } from '@hapi/boom'
 import config from './config'
 import { baileysLogger, logger } from './utils/logger'
+import { simulateTyping, simulateMediaUpload, sleep } from './utils/humanize'
 
 let sock: WASocket | null = null
+// Queue for messages to ensure we don't send concurrently to the same chat
+const messageQueues = new Map<string, Promise<void>>()
 
 export async function connectToWhatsApp(
   onMessage: (msg: proto.IWebMessageInfo) => void,
@@ -25,13 +29,14 @@ export async function connectToWhatsApp(
     version,
     logger: baileysLogger,
     printQRInTerminal: false,
+    browser: Browsers.macOS('Desktop'),
     auth: {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(state.keys, baileysLogger),
     },
     generateHighQualityLinkPreview: true,
     syncFullHistory: false,
-    markOnlineOnConnect: true,
+    markOnlineOnConnect: false,
   })
 
   // Handle connection updates
@@ -88,9 +93,48 @@ export function getSocket(): WASocket | null {
   return sock
 }
 
+/**
+ * Queue a message sending task for a specific chat to prevent concurrent spam
+ */
+async function enqueueMessageTask<T>(chatId: string, task: () => Promise<T>): Promise<T> {
+  const currentQueue = messageQueues.get(chatId) || Promise.resolve()
+  
+  const nextQueue = currentQueue.then(async () => {
+    try {
+      return await task()
+    } catch (e) {
+      logger.error(`Error in message queue for ${chatId}:`, e)
+      throw e
+    }
+  }).catch(() => {
+    // Catch so the next tasks in queue don't fail
+  }) as Promise<T>
+  
+  messageQueues.set(chatId, nextQueue)
+  return nextQueue
+}
+
 export async function sendMessage(chatId: string, content: any) {
   if (!sock) throw new Error('Not connected to WhatsApp')
-  return sock.sendMessage(chatId, content)
+  
+  return enqueueMessageTask(chatId, async () => {
+    // Ensure we are sending a read receipt before we "reply"
+    try {
+      // Small pause before anything
+      await sleep(500)
+    } catch (e) {}
+    
+    // Simulate typing if it's text
+    if (content.text) {
+      await simulateTyping(sock!, chatId, content.text)
+    } 
+    // Simulate media upload delay if it's media
+    else if (content.image || content.video || content.document || content.audio) {
+      await simulateMediaUpload(sock!, chatId)
+    }
+    
+    return sock!.sendMessage(chatId, content)
+  })
 }
 
 export async function sendTextMessage(chatId: string, text: string) {
@@ -120,16 +164,27 @@ export async function downloadMedia(message: proto.IWebMessageInfo): Promise<Buf
 
 export async function readMessages(chatId: string, messageKeys: proto.IMessageKey[]) {
   if (!sock) return
-  await sock.readMessages(messageKeys)
+  try {
+    // Add realistic delay before marking as read
+    await sleep(Math.floor(Math.random() * 1000) + 500)
+    await sock.readMessages(messageKeys)
+  } catch (e) {
+    logger.warn('Failed to send read receipt:', e)
+  }
 }
 
 export async function sendReaction(chatId: string, messageKey: proto.IMessageKey, emoji: string) {
   if (!sock) return
-  await sock.sendMessage(chatId, {
-    react: {
-      text: emoji,
-      key: messageKey,
-    },
+  
+  return enqueueMessageTask(chatId, async () => {
+    // Add realistic delay before reacting
+    await sleep(Math.floor(Math.random() * 1000) + 800)
+    await sock!.sendMessage(chatId, {
+      react: {
+        text: emoji,
+        key: messageKey,
+      },
+    })
   })
 }
 

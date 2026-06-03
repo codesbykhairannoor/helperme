@@ -1,5 +1,5 @@
 import { proto, WASocket } from '@whiskeysockets/baileys'
-import { sendMessage } from '../connection'
+import { sendMessage, readMessages } from '../connection'
 import { saveMessageWithRaw } from '../database/messages'
 import { saveMediaFile } from '../database/media'
 import { handleViewOnceMessage } from '../features/viewonce-saver'
@@ -131,6 +131,10 @@ export async function handleMessage(
     if (!isStatusMessage(chatId)) {
       const ctx = createContext(sock, message)
       if (ctx && text) {
+        // Read message before processing commands to simulate human reading
+        if (text.startsWith(config.prefix)) {
+          await readMessages(chatId, [key])
+        }
         await handleCommand(ctx)
       }
     }
